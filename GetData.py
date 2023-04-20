@@ -3,7 +3,7 @@ import pandas as pd
 
 DATA_PATH = "/home/yasin/iitp/interview/Root-Polynomial-Colour-Correction/data/"
 
-def Responses_Reflectances(
+def responses_reflectances(
         csv_resp = DATA_PATH + "Canon 600D.csv", 
         csv_refl = DATA_PATH + "CIE 1964.csv"):
     """returns tuple : (responses, reflectances)"""
@@ -14,10 +14,10 @@ def Responses_Reflectances(
 
 def D65(
         csv_d65 = DATA_PATH + "d65_illum.csv"):
-
+    """returns D65 illuminant data"""
     return pd.read_csv(csv_d65).to_numpy()
 
-def CheckerSpectrum( #380-730 wavelength
+def checker_spectrum( #380-730 wavelength
         csv_spectrum = DATA_PATH + "checkerlength.csv"):
     """returns tuple: (checker, wavelength)"""
     checker = pd.read_csv(csv_spectrum, index_col='Color name').to_numpy()

@@ -27,11 +27,10 @@ def filtered_P_combs(sum, length = 3, combs = np.array([[0, 0, 0]]), comb = np.a
     return (np.unique(combs, axis = 0))[1:]
 
 # TODO: rewrite?
-#extended by adding additional rpcc terms
 def getRPVector(responses, degree, bias = False):
     #responses : 3xN responses (meaning 3xN RGB responses)
-    # returns MxN vector, where M - amount of terms of polynom of degree == degree 
-    responses = PreprocessImg(responses)
+    """returns RGB vector extended to MxN, where M=number of terms and N responses""" 
+    responses = preprocess_img(responses)
 
     R = responses[0, :]
     G = responses[1, :]
@@ -73,20 +72,20 @@ def RP_combs(degree):
     
     return np.unique(expanded, axis = 0)[1:]
 
-def CalcTFactor():
+def calc_tfactor():
     pass
     # return t_factor
 
-def GetCCM(Q, R, degree, t_factor = 0):
+def get_CCM(Q, R, degree, t_factor = 0):
+    """returns ColourCorrection Matrix : 3xM """
     # Q : image/colorchecker reflectances
     # R : image/colorchecker responses 
-    # return : ccm : 3xM 
 
-    Q = PreprocessImg(Q) #3xN
+    # if needed, reshape to 3xN     
+    Q = preprocess_img(Q) 
+    R = preprocess_img(R) 
 
-    R = PreprocessImg(R) # 3xN
-
-    R = getRPVector(R, degree) # M x N (N responses, M terms)
+    R = getRPVector(R, degree)
 
     RxRT = np.dot(R, R.T) #  MxN * NxM = MxM
     QxRT = np.dot(Q, R.T) #  3XN * NxM = 3xM
@@ -94,26 +93,23 @@ def GetCCM(Q, R, degree, t_factor = 0):
     ccm = np.dot(QxRT, np.linalg.inv(RxRT + t_factor*np.eye(RxRT.shape[0])))  
     return ccm
 
-def ApplyCCM(ccm, camera_responses, degree : int, scale = 1):
-    # camera_responses : Nx3 array containing r,g,b responses (in range 0-1) of img 
-    # ^ need to change cuz picture is NxMx3
-    # reflectances : Nx3 array containing x,y,z (in range 0-1)
+def apply_CCM(ccm, camera_responses, degree : int, scale = 1):
+    """applies ccm to set of RGB responses"""
+    # camera_responses : Nx3 array containing r,g,b responses  
     # scale : camera responses * scale first, then __expanded__ and multiplied 
-
-    #NEW 
     # ccm - matrix 3xM, M = terms counter of chosen degree 
 
-    camera_responses = PreprocessImg(camera_responses)  
+    camera_responses = preprocess_img(camera_responses)  
 
     camera_responses = np.clip(camera_responses * scale, 0, 1)
 
-    rho = getRPVector(camera_responses, degree) #image expanded
+    rho = getRPVector(camera_responses, degree)
 
-    predicted_xyz = np.dot(ccm, rho)
+    result_xyz = np.dot(ccm, rho)
 
-    return predicted_xyz #predicted?
+    return result_xyz
 
-def PreprocessImg(image):
+def preprocess_img(image):
     if (np.ndim(image) == 3):
         image = np.reshape(image, (image.shape[2], image.shape[0] * image.shape[1]))
     elif ((np.ndim(image) == 2)):
@@ -121,21 +117,23 @@ def PreprocessImg(image):
             image = image.T
     return image
 
-def ShowResults(REAL, PRED):
+def show_results(REAL, PRED):
     plt.subplots(1 , 2, figsize=(20, 20))
+
     plt.subplot(1, 2, 1)
     plt.title("XYZ_REAL")
-    print("???", REAL.shape)
     plt.imshow(REAL)
     plt.grid(False)
     plt.xticks([])
     plt.yticks([])
+    
     plt.subplot(1, 2, 2)
     plt.title("XYZ_PRED")
     plt.imshow(PRED)
     plt.grid(False)
     plt.xticks([])
     plt.yticks([])
+    
     plt.show()
 
 
