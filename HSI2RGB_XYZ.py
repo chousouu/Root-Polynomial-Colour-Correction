@@ -5,6 +5,7 @@ from scipy.interpolate import PchipInterpolator
 from bisect import bisect
 import pandas as pd
 import GetData
+import matplotlib.pyplot as plt
 
 def HSI2XYZ(wY,HSI,ydim,xdim):
 #|--------------------------------------------|
@@ -40,16 +41,15 @@ def HSI2XYZ(wY,HSI,ydim,xdim):
     y=y[:cut]
     z=z[:cut]
     
-    # Compute k = 1/N
     k = 1/np.trapz(y * I, wY)
-    
-    # Compute X,Y,Z for image
+
+    print((HSI @ np.diag(I * x)).shape)
     X = k * np.trapz(HSI @ np.diag(I * x), wY, axis=1)
     Y = k * np.trapz(HSI @ np.diag(I * y), wY, axis=1)
     Z = k * np.trapz(HSI @ np.diag(I * z), wY, axis=1)
-    
+
     XYZ = np.array([X, Y, Z])
-    
+
     X = np.reshape(XYZ[0,:],[ydim,xdim])
     Y = np.reshape(XYZ[1,:],[ydim,xdim])
     Z = np.reshape(XYZ[2,:],[ydim,xdim])
@@ -81,16 +81,19 @@ def HSI2RGB(wY,HSI,ydim,xdim):
     # Truncate at 780nm
     cut = bisect(wY, 780)
     HSI = HSI[:,0:cut]/HSI.max()
-    wY=wY[:cut]
-    r=r[:cut]
-    g=g[:cut]
-    b=b[:cut]
+    print(HSI.shape)
+    wY  = wY[:cut]
+    r   = r[:cut]
+    g   = g[:cut]
+    b   = b[:cut]
 
     # Compute R,G & B for image
     R = np.trapz(HSI @ np.diag(r), wY, axis=1) / np.trapz(r, wY)
     G = np.trapz(HSI @ np.diag(g), wY, axis=1) / np.trapz(g, wY)
     B = np.trapz(HSI @ np.diag(b), wY, axis=1) / np.trapz(b, wY)
-    
+
+    print(R.shape)
+
     RGB = np.array([R, G, B])
     R = np.reshape(RGB[0,:],[ydim,xdim])
     G = np.reshape(RGB[1,:],[ydim,xdim])
