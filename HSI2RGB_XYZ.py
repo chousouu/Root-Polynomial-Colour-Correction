@@ -42,18 +42,19 @@ def HSI2XYZ(wY,HSI,ydim,xdim):
     y = y[:cut]
     z = z[:cut]
     
-    k = 1/np.trapz(I * y, wY)
-
-    X = k * np.trapz(HSI @ np.diag(I * x), wY, axis=1)
-    Y = k * np.trapz(HSI @ np.diag(I * y), wY, axis=1)
-    Z = k * np.trapz(HSI @ np.diag(I * z), wY, axis=1)
+    k = 1/integrate.trapezoid(I * y, wY)
+    
+    X = np.trapz(HSI @ np.diag(I * x), wY, axis=1) * k
+    Y = np.trapz(HSI @ np.diag(I * y), wY, axis=1) * k
+    Z = np.trapz(HSI @ np.diag(I * z), wY, axis=1) * k
 
     XYZ = np.array([X, Y, Z])
     
     X = np.reshape(XYZ[0,:],[ydim,xdim])
     Y = np.reshape(XYZ[1,:],[ydim,xdim])
     Z = np.reshape(XYZ[2,:],[ydim,xdim])
-    
+
+    # return np.transpose(np.array([X,Y,Z]),[1,2,0])
     return np.clip(np.transpose(np.array([X,Y,Z]),[1,2,0]), 0, 1)
 
 def HSI2RGB(wY,HSI,ydim,xdim):
@@ -79,21 +80,7 @@ def HSI2RGB(wY,HSI,ydim,xdim):
     r = PchipInterpolator(w,r,extrapolate=True)(wY)  
     g = PchipInterpolator(w,g,extrapolate=True)(wY)  
     b = PchipInterpolator(w,b,extrapolate=True)(wY)  
-
-
-    #  tried to fill with zeros
-    #=====================================================
-    # difference_bottom = int(abs((wY[0] - w[0]) / 10))
-    # difference_top = int(abs((wY[-1] - w[-1]) / 10))
-
-    # r = np.append(np.zeros(difference_bottom), r)
-    # r = np.append(r, np.zeros(difference_top))
-    # g = np.append(np.zeros(difference_bottom), g)
-    # g = np.append(g, np.zeros(difference_top))
-    # b = np.append(np.zeros(difference_bottom), b)
-    # b = np.append(b, np.zeros(difference_top))
-    #=====================================================
-    
+  
     above_cut = bisect(wY, wY[-1]) 
 
     HSI = HSI[:,0:above_cut]
@@ -108,9 +95,9 @@ def HSI2RGB(wY,HSI,ydim,xdim):
     k_g = 1 / integrate.trapezoid(g, wY)
     k_b = 1 / integrate.trapezoid(b, wY)
 
-    R = integrate.trapezoid(HSI * r, wY) * k_r
-    G = integrate.trapezoid(HSI * g, wY) * k_g
-    B = integrate.trapezoid(HSI * b, wY) * k_b
+    R = np.trapz(HSI @ np.diag(r), wY, axis=1) * k_r
+    G = np.trapz(HSI @ np.diag(g), wY, axis=1) * k_g
+    B = np.trapz(HSI @ np.diag(b), wY, axis=1) * k_b
 
     R = np.reshape(R,[ydim,xdim])
     G = np.reshape(G,[ydim,xdim])
