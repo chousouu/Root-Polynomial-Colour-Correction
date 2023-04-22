@@ -1,11 +1,30 @@
-from sklearn.model_selection import LeaveOneOut
 import numpy as np
-import GetData
+import matplotlib.pyplot as plt
 import h5py
+
+import GetData
 import HSI2RGB_XYZ as HSI
 import RPCC as RP
 
-def get_best_CCM(X, Y, degree):
+def get_best_CCM(degree):
+    HSI_data = GetData.checker_spectrum()[0]
+    (ydim, xdim, zdim) = HSI_data.shape
+    # Load wavelengths of hyperspectral data
+    wl = GetData.checker_spectrum()[1]
+
+    HSI_data = np.reshape(HSI_data, [-1, zdim])/HSI_data.max()
+
+    XYZ_true = HSI.HSI2XYZ(wl, HSI_data, xdim, ydim)
+
+    RGB_true = HSI.HSI2RGB(wl, HSI_data, xdim, ydim)
+
+    #reshape and transfer to 2dim for train
+    X = np.reshape(np.transpose(RGB_true,[2,0,1]), (3, -1))
+    Y = np.reshape(np.transpose(XYZ_true, [2,0,1]), (3, -1))
+
+    return train(X, Y, degree)
+
+def train(X, Y, degree):
     """
     returns best colour correction matrix using angle metric
     by running Leave-One-Out Cross Validation.
@@ -17,7 +36,6 @@ def get_best_CCM(X, Y, degree):
         X_test = np.reshape(X[:, i], (3, 1))
         Y_train = np.append(Y[:, :i], Y[:, i+1:], axis=1)
         Y_test = np.reshape(Y[:, i], (3, 1))
-        # print(f"Y_TEST = {Y_test.shape}, y_train = {Y_train.shape}, X_train = {X_train.shape} XTEST = {X_test.shape} ")
 
         ccm = RP.get_CCM(Y_train, X_train, degree, t_factor = 0)
 
@@ -32,65 +50,41 @@ def get_best_CCM(X, Y, degree):
 
 def scoring(Y_pred, Y_true):
     """returns angle between predicted and true vectors """
-    mul_abs = (Y_pred[0]**2 + Y_pred[1]**2 + Y_pred[2]**2) * \
-              (Y_true[0]**2 + Y_true[1]**2 + Y_true[2]**2) 
+    mul_abs = np.sum(Y_pred**2) * np.sum(Y_true**2) 
 
     error = np.arccos(np.sum(Y_true * Y_pred) / (mul_abs**0.5))
 
     return error
 
 
-
 def main():
     DEGREE = 4
-
-#==========================COLORCHECKER=======================================
-    HSI_data = GetData.checker_spectrum()[0]
+    
+    HSI_name = "2019-09-08_015.h5"
+    # HSI_name = "2019-08-28_016.h5" # green(red) leaves
+    # HSI_name = "2019-09-18_003.h5" # colorchecker image
+    h5file = h5py.File("/home/yasin/iitp/interview/li_ds/" + HSI_name, 'r')
+    HSI_data = h5file['img\\']
+    
+    # (bands, pixels x pixels) -> (pixels x pixels, bands)
+    HSI_data = np.transpose(HSI_data, (1, 2, 0))
+    
+    #remember sizes
     (ydim, xdim, zdim) = HSI_data.shape
-    # Load wavelengths of hyperspectral data
-    wl = GetData.checker_spectrum()[1]
-#=============================================================================
-
-
-#===========================================HSI====================================================
-    # h5file = h5py.File("/home/yasin/iitp/interview/li_ds/2019-09-18_003.h5", 'r')
-    # HSI_data = h5file['img\\']
-    # HSI_data = np.reshape(HSI_data, [HSI_data.shape[1], HSI_data.shape[2], HSI_data.shape[0]])
-
-    # # HSI_data = HSI_data[:64, :64, :]
-
-    # (ydim, xdim, zdim) = HSI_data.shape
-    # wl = np.arange(400, 730 + 1, 10)
-#==================================================================================================
+    wl = np.arange(400, 730 + 1, 10) #wavelength of hs images
 
     # Reorder data so that each column holds the spectra of of one pixel
-    HSI_data = np.reshape(HSI_data, [-1,zdim])/HSI_data.max()
+    HSI_data = np.reshape(HSI_data, [-1,zdim])
 
     XYZ_true = HSI.HSI2XYZ(wl, HSI_data, xdim, ydim)
 
     RGB_true = HSI.HSI2RGB(wl, HSI_data, xdim, ydim)
 
-    ccm = RP.get_CCM(XYZ_true, RGB_true, DEGREE, t_factor = 0)
+    ccm = get_best_CCM(DEGREE)
 
-    copy = ccm
-    XYZ_pred = RP.apply_CCM(ccm, RGB_true, DEGREE)
-
-    #transfer to 2dim
-    X = np.reshape(RGB_true, (3, RGB_true.shape[0] * RGB_true.shape[1]))
-    Y = np.reshape(XYZ_true, (3, XYZ_true.shape[0] * XYZ_true.shape[1]))
-
-    best_ccm = get_best_CCM(X, Y, DEGREE)
-
-    RESULT = RP.apply_CCM(best_ccm, RGB_true, DEGREE)
-
-    # #show results
-    # xyz_pred = np.reshape(xyz_pred,(xdim, ydim, 3))
-    # XYZ_image = np.reshape(XYZ_image, (xdim, ydim, 3))
-    # RGB_IMAGE = np.reshape(XYZ_image, (xdim, ydim, 3))
-    RESULT = np.reshape(RESULT, (xdim, ydim, 3))
-    RP.show_results(XYZ_true, RESULT)
-
-
+    XYZ_pred = np.reshape((RP.apply_CCM(ccm, RGB_true, DEGREE)).T, (xdim, ydim, 3))
+   
+    RP.show_results(XYZ_REAL=XYZ_true, XYZ_PRED=XYZ_pred, RGB=RGB_true)
 
 
 

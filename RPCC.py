@@ -5,13 +5,16 @@ import pandas as pd
 import GetData
 import HSI2RGB_XYZ as HSI
 
-#TODO: rewrite  (no leave in recursion)
-def P_combs(sum, length = 3, combs = np.array([[0, 0, 0]]), comb = np.array([])):
+#TODO: rewrite (inefficient)
+# WARNING : returns duplicates so before using apply filtered_P_combs()
+def P_combs(sum, length = 3, combs = np.array([[0, 0, 0]]), 
+                comb = np.array([])):
     for sum_i in range(0, sum + 1):
         if length > 2:
             for i in range(sum_i + 1):
                 comb = np.append(comb, i)
-                combs = P_combs(sum_i - i, combs = combs,comb = comb, length = length - 1)
+                combs = P_combs(sum_i - i, combs = combs,
+                                comb = comb, length = length - 1)
                 comb = comb[:-1]
         else:
             for i in range(sum_i + 1):
@@ -22,12 +25,26 @@ def P_combs(sum, length = 3, combs = np.array([[0, 0, 0]]), comb = np.array([]))
 
     return combs    
 #TODO: remove(part of temp solution)
-def filtered_P_combs(sum, length = 3, combs = np.array([[0, 0, 0]]), comb = np.array([])):
+def filtered_P_combs(sum, length = 3, combs = np.array([[0, 0, 0]]), 
+                        comb = np.array([])):
+    
+    
     combs = P_combs(sum, length = length, comb = comb, combs=combs)
     return (np.unique(combs, axis = 0))[1:]
 
+def RP_combs(degree):
+    """returns array (3 , terms of Degree)"""
+    RP_v = filtered_P_combs(degree)
+
+    expanded = np.zeros((1, 3)) # 3 cuz represents R^x, G^y, B^z
+
+    for row in RP_v:
+        expanded = np.append(expanded, [row / np.sum(row)], axis = 0)
+    
+    return np.unique(expanded, axis = 0)[1:]
+
 # TODO: rewrite?
-def getRPVector(responses, degree, bias = False):
+def get_RP_vector(responses, degree, bias = False):
     #responses : 3xN responses (meaning 3xN RGB responses)
     """returns RGB vector extended to MxN, where M=number of terms and N responses""" 
     responses = preprocess_img(responses)
@@ -61,31 +78,23 @@ def getRPVector(responses, degree, bias = False):
     
     return expanded[1:, ]
 
-def RP_combs(degree):
-    """returns array (3 , terms of Degree)"""
-    RP_v = filtered_P_combs(degree)
-
-    expanded = np.zeros((1, 3)) # 3 cuz represents R^x, G^y, B^z
-
-    for row in RP_v:
-        expanded = np.append(expanded, [row / np.sum(row)], axis = 0)
-    
-    return np.unique(expanded, axis = 0)[1:]
-
+# TODO unused maybe
 def calc_tfactor():
     pass
     # return t_factor
 
 def get_CCM(Q, R, degree, t_factor = 0):
-    """returns ColourCorrection Matrix : 3xM """
-    # Q : image/colorchecker reflectances
-    # R : image/colorchecker responses 
+    """
+    returns ColourCorrection Matrix : 3xM
+    Q : colorchecker reflectances
+    R : colorchecker responses 
+    """
 
     # if needed, reshape to 3xN     
     Q = preprocess_img(Q) 
     R = preprocess_img(R) 
 
-    R = getRPVector(R, degree)
+    R = get_RP_vector(R, degree)
 
     RxRT = np.dot(R, R.T) #  MxN * NxM = MxM
     QxRT = np.dot(Q, R.T) #  3XN * NxM = 3xM
@@ -94,16 +103,18 @@ def get_CCM(Q, R, degree, t_factor = 0):
     return ccm
 
 def apply_CCM(ccm, camera_responses, degree : int, scale = 1):
-    """applies ccm to set of RGB responses"""
-    # camera_responses : Nx3 array containing r,g,b responses  
-    # scale : camera responses * scale first, then __expanded__ and multiplied 
-    # ccm - matrix 3xM, M = terms counter of chosen degree 
+    """
+    applies ccm to set of RGB responses
+    camera_responses : Nx3 array containing r,g,b responses  
+    scale : camera responses * scale first, then __expanded__ and multiplied 
+    ccm : matrix 3xM, M = terms counter of chosen degree 
+    """
 
     camera_responses = preprocess_img(camera_responses)  
 
     camera_responses = np.clip(camera_responses * scale, 0, 1)
 
-    rho = getRPVector(camera_responses, degree)
+    rho = get_RP_vector(camera_responses, degree)
 
     result_xyz = np.dot(ccm, rho)
 
@@ -111,25 +122,34 @@ def apply_CCM(ccm, camera_responses, degree : int, scale = 1):
 
 def preprocess_img(image):
     if (np.ndim(image) == 3):
-        image = np.reshape(image, (image.shape[2], image.shape[0] * image.shape[1]))
+        image = np.transpose(np.array(image),[2,0,1])
+
+        image = np.reshape(image, (image.shape[0], -1))
     elif ((np.ndim(image) == 2)):
         if((image.shape[0] != 3) and (image.shape[1] == 3)):
             image = image.T
     return image
 
-def show_results(REAL, PRED):
-    plt.subplots(1 , 2, figsize=(20, 20))
+def show_results(XYZ_REAL, XYZ_PRED, RGB):
+    plt.subplots(2, 2, figsize=(20, 20))
 
-    plt.subplot(1, 2, 1)
+    plt.subplot(2, 2, 1)
     plt.title("XYZ_REAL")
-    plt.imshow(REAL)
+    plt.imshow(XYZ_REAL)
     plt.grid(False)
     plt.xticks([])
     plt.yticks([])
     
-    plt.subplot(1, 2, 2)
+    plt.subplot(2, 2, 2)
     plt.title("XYZ_PRED")
-    plt.imshow(PRED)
+    plt.imshow(XYZ_PRED)
+    plt.grid(False)
+    plt.xticks([])
+    plt.yticks([])
+    
+    plt.subplot(2, 2, 3)
+    plt.title("RGB")
+    plt.imshow(RGB)
     plt.grid(False)
     plt.xticks([])
     plt.yticks([])
