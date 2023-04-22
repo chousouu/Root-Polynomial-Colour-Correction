@@ -34,8 +34,7 @@ def HSI2XYZ(wY,HSI,ydim,xdim):
     y = PchipInterpolator(w,y,extrapolate=True)(wY) 
     z = PchipInterpolator(w,z,extrapolate=True)(wY) 
 
-    # cut at 780nm
-    cut = bisect(wY, 780)
+    cut = bisect(wY, wY[-1]) 
     HSI = HSI[:,0:cut]
     wY = wY[:cut]
     I = I[:cut]
